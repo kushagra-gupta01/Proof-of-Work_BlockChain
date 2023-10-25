@@ -1,14 +1,17 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
@@ -24,6 +27,10 @@ type Block struct{
 	PrevHash string
 	Difficulty int
 	Nonce string
+}
+
+type Message struct{
+	data int
 }
 
 var BlockChain []Block
@@ -82,26 +89,90 @@ func handleGetBlockchain(w http.ResponseWriter,h *http.Request){
 	io.WriteString(w ,string(bytes))
 }
 
-func handleWriteBlock(){
+func handleWriteBlock(w http.ResponseWriter, r *http.Request){
+	w.Header().Set("Content-Type","application/json")
+	var m Message
+	err := json.NewDecoder(r.Body).Decode(&m);if err !=nil{
+		responseWithJSON(w,r,http.StatusBadRequest, r.Body)
+		return
+	}
+	defer r.Body.Close()
 
+	mutex.Lock()
+	newBlock := generateBlock(BlockChain[len(BlockChain)-1],m.data)
+	mutex.Unlock()
+
+	if isBlockValid(newBlock,BlockChain[len(BlockChain)-1]){
+		BlockChain = append(BlockChain, newBlock)
+		spew.Dump(BlockChain)
+	}
+
+	responseWithJSON(w,r,http.StatusCreated,newBlock)
 }
 
-func responseWithJSON(){
-
+func responseWithJSON(w http.ResponseWriter,r *http.Request, code int, payload interface{}){
+	w.Header().Set("Content-Type","application/json")
+	response,err :=json.MarshalIndent(payload,""," ")
+	if err !=nil{
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("HTTP 500:Internal Server Error"))
+		return
+	}
+	w.WriteHeader(code)
+	w.Write(response)
 }
 
-func isBlockValid() bool{
+func isBlockValid(newBlock,oldBlock Block) bool{
+	if oldBlock.Index +1 != newBlock.Index{
+		return false
+	}
+	
+	if oldBlock.Hash != newBlock.PrevHash{
+		return false
+	}
 
+	if calculateHash(newBlock) !=newBlock.Hash {
+		return false
+	}
+	return true
 }
 
-func calculateHash() string{
-
+func calculateHash(block Block) string{
+	record := strconv.Itoa(block.Index) + block.Nonce + strconv.Itoa(block.Data) + block.TimeStamp + block.PrevHash
+	h := sha256.New()
+	h.Write([]byte(record))
+	hashed := h.Sum(nil)
+	return hex.EncodeToString(hashed) 
 }
 
-func generateBlock(){ 
+func generateBlock(oldBlock Block,Data int)(Block){ 
+	var newBlock Block
+	t := time.Now()
 
+	newBlock.Index  = oldBlock.Index +1
+	newBlock.Data = Data
+	newBlock.TimeStamp = t.String()
+	newBlock.PrevHash = oldBlock.Hash
+	newBlock.Difficulty = difficulty
+	
+	for i := 0 ; ; i++ {
+		hex := fmt.Sprintf("%x", i)
+		newBlock.Nonce = hex
+		if !isHashValid(calculateHash(newBlock), newBlock.Difficulty){
+			fmt.Println(calculateHash(newBlock), "do more work")
+			time.Sleep(time.Second)
+			continue
+		}
+		else{
+			fmt.Println(calculateHash(newBlock), "do more work")
+			newBlock.hash = calculateHash(newBlock)
+			break
+		}
+	}
+	return newBlock
 }
 
-func isHashValid() bool{
-
+func isHashValid(hash string,difficulty int) bool{
+	prefix := strings.Repeat("0",1)
+	return strings.HasPrefix(hash,prefix)
 }
