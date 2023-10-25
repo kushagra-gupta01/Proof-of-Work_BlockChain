@@ -10,8 +10,10 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
@@ -75,8 +77,8 @@ func run() error{
 
 func makeMuxRouter() http.Handler{
 	muxRouter := mux.NewRouter()
-	muxRouter.HandlerFunc("/", handleGetBlockchain).Methods("GET")
-	muxRouter.HandlerFunc("/", handleWriteBlock).Methods("POST")
+	muxRouter.HandleFunc("/", handleGetBlockchain).Methods("GET")
+	muxRouter.HandleFunc("/", handleWriteBlock).Methods("POST")
 	return muxRouter
 }
 
@@ -162,10 +164,9 @@ func generateBlock(oldBlock Block,Data int)(Block){
 			fmt.Println(calculateHash(newBlock), "do more work")
 			time.Sleep(time.Second)
 			continue
-		}
-		else{
+		}else{
 			fmt.Println(calculateHash(newBlock), "do more work")
-			newBlock.hash = calculateHash(newBlock)
+			newBlock.Hash = calculateHash(newBlock)
 			break
 		}
 	}
