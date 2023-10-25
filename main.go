@@ -13,7 +13,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
@@ -174,6 +173,6 @@ func generateBlock(oldBlock Block,Data int)(Block){
 }
 
 func isHashValid(hash string,difficulty int) bool{
-	prefix := strings.Repeat("0",1)
+	prefix := strings.Repeat("0",difficulty)
 	return strings.HasPrefix(hash,prefix)
 }
